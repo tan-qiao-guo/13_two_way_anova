@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>.white[.large[13.多因素方差分析(Factorial ANOVA)]]</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="" />
+    <script src="libs/header-attrs-2.25/header-attrs.js"></script>
+    <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link rel="stylesheet" href="zh-CN.css" type="text/css" />
+    <link rel="stylesheet" href="extra.css" type="text/css" />
+    <link rel="stylesheet" href="footer-header.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# .white[.large[<code>13.</code>多因素方差分析<code>(Factorial ANOVA)</code>]]
+]
+.author[
+### 
+]
+
+---
+
+
+layout: true
+  
+&lt;div class="my-footer"&gt;&lt;span&gt;Qiao-Guo Tan/CEE/XMU | tanqg@xmu.edu.cn | 2025-May-21   
+&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;
+&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;&amp;emsp;
+&lt;/span&gt;&lt;/div&gt; 
+
+
+
+---
+### 所用到的包
+
+```r
+library(tidyverse) 
+library(car)
+library(emmeans) #用于post-hoc多重比较
+library(multcomp)
+library(multcompView)
+library(rstatix) #计算效应值
+```
+
+---
+### ANOVA
+
+* **One-way ANOVA**:  `aov(Y ~ A, data = d)`
+
+
+&lt;br&gt;
+
+* **Factorial ANOVA**
+ - **Two-way ANOVA**:  `aov(Y ~ A + B, data = d)`
+ - **Three-way ANOVA**:  `aov(Y ~ A + B + C, data = d)`
+ - ...
+ 
+---
+
+class: inverse, middle, center 
+
+# 1
+## Two-way ANOVA的相关基本概念   
+
+
+---
+### 原假设与备择假设  
+
+* Two-way ANOVA有**三条原假设**：
+1. 因子A各个水平的均值相等
+
+2. 因子B各个水平的均值相等
+
+3. 因子A和B之间无交互作用 (interaction)
+
+&lt;br&gt;
+
+
+* **备择假设**
+ - 原假设1，2的备择假设是：至少有一组均值不等
+ 
+ - 原假设3的备择假设是：因子A和B之间存在交互作用
+
+???
+There is no difference in the means of factor A
+There is no difference in means of factor B
+There is no interaction between factors A and B
+The alternative hypothesis for cases 1 and 2 is: the means are not equal.
+
+The alternative hypothesis for case 3 is: there is an interaction between A and B.
+
+
+
+---
+### 均衡设计 vs. 非均衡设计
+.large[
+* **均衡设计** (balanced design)：各处理的样本数相等  
+
+* **非均衡设计** (unbalanced design)：各处理的样本数不完全相等  
+
+* 非均衡的ANOVA更为复杂
+
+* 尽量设计均衡的实验，采集均衡的数据  
+]
+
+&lt;img src="figs/balanced.png" width="537.9" height="275" /&gt;
+
+
+
+
+
+---
+### 交互作用
+.large[
+当存在**交互作用**时，一个因子的影响取决于另一个因子的水平。
+]
+&lt;img src="figs/interaction.png" width="795" height="436" /&gt;
+
+
+
+???
+Demystifying Statistics: On the interpretation of ANOVA effects
+https://skeetersays.wordpress.com/2008/08/12/demystifying-statistics-on-the-interpretation-of-anova-effects/
+
+---
+### 主效应（Main Effect）
+.large[
+* 当交互作用不显著时，查看**主效应**  
+
+* 因子A的主效应：忽略因子B的存在，比较因子A各个水平的均值  
+
+* 因子B的主效应：忽略因子A的存在，比较因子B各个水平的均值  
+]
+&lt;img src="figs/main_effects.png" width="1099.09090909091" height="354.545454545455" /&gt;
+
+---
+### 简单效应（Simple Effect）
+.large[
+* 当交互作用显著时，应谨慎解释主效应，因为这可能会产生误导（后面详述） 
+
+* 此时，可主要解释**简单效应**  
+
+* **简单效应**是指一个因子在"另一个因子的一个水平上"的效应
+]
+&lt;img src="figs/simple_effects.png" width="952.8" height="390.4" /&gt;
+
+
+
+---
+
+class: inverse, middle, center 
+# 2
+## Two-way ANOVA的一般流程   
+
+
+---
+### Two-way ANOVA的一般流程
+
+1. **建立包含主效应和交互作用的模型**
+ - `aov(Y ~ A * B, data = d)`
+ - 检验交互作用  
+&lt;br&gt;
+2. **如果交互作用不显著**
+ - 则单独检验主效应（使用多重比较）
+ - 可在不包含交互作用项的情况下重新aov进行分析，即`aov(Y ~ A + B, data = d) `   
+&lt;br&gt;
+3. **如果交互作用显著**
+ - 确定交互作用是否**重要**
+ - 如果不重要，可像步骤2一样检验主效应  
+&lt;br&gt;
+4. **如果交互作用存在且重要**
+ - 确定交互作用是**简单**的还是**复杂**的  
+&lt;br&gt;
+5. **对于简单的交互作用**
+ - 仍然可以讨论因子A在因子B的每个水平上的效应（简单效应，也称为简单主效应）   
+&lt;br&gt;
+6. **对于复杂的交互作用**
+ - 须将所有因子组合视为单独的处理（转化为one-way ANOVA）
+
+
+???
+1. Set up model with main effects and interaction(s), check assumptions, and
+examine interaction(s).
+2. If no significant interaction, examine main effects individually, using appropriate
+adjustments for multiple comparisons, main effects plots, etc.
+• Note one could also possibly re-run the analysis without the interaction term 
+
+3. If interaction is significant, determine whether interactions are important. If not, can examine main effects as in Step 2.
+4. If interaction present &amp; important, determine whether interaction is simple or complex.
+5. For simple interactions, can still talk about the main effects of A at each level of B
+6. For complex interaction, must simply consider all pairs of levels as separate
+treatments.
+
+---
+### 什么是“不重要的交互作用”？
+.large[
+* 与主效应相比，交互作用**非常小**，或者只在少数处理中出现  
+
+* 线虽不完全平行，但**接近平行**  
+]
+
+
+--
+&lt;br&gt;
+### 若交互作用显著，但不重要 
+.large[
+* 可在模型中**保留**交互作用，同时检验每个重要的主效应
+]
+
+???
+（Unimportant Interactions）
+• If interaction effects are very small compared to main effects or only apparent
+in a small number of treatments, then they are probably unimportant.
+• Lines will be not quite parallel, but close.
+• We can proceed by keeping interaction in the model, but using marginal means for each significant main effect individually
+• Marginal means: Averages over the levels of the other factor. 
+
+---
+### 什么是“重要的交互作用”？
+.large[
+* 交互效应非常大或普遍，以至于不能单独解释主效应  
+&lt;br&gt;
+* 在交互作用图中，线条不是平行的
+ - 它们可能交错，也可能不交错
+ - 一个因子影响的大小取决于另一个因子的水平
+]   
+  
+  
+--
+
+
+### 交互作用重要时，怎么办？ 
+.large[
+* 报告结果时，说明交互作用是显著的  
+
+* 讨论简单效应  
+
+* 分析交互作用：把所有AB组合视为处理，等同于做单因素方差分析
+]
+
+???
+（Important Interactions）
+• The interaction effect is so large and/or pervasive that main effects cannot be interpreted on their own.
+• In interaction plots, the lines will not be parallel. They may or may not criss-cross, but the differences between levels for one factor will depend on the level of the other factor 
+
+Options include the following:
+• Analyze interaction – Similar to interpreting as a one-way ANOVA with ab levels; use
+Tukey to compare means; contrasts and estimate can also be useful.
+• Report that the interaction is significant; plot the means and describe the pattern.
+• Discuss results for the levels of A for each level of B or vice versa 
+
+---
+### 交互作用是简单的，还是复杂的？
+.large[
+- **简单的交互作用**：可以描述出一个因子在另一个因子的每个水平下的效应趋势，并且总体趋势相同  
+
+&lt;br&gt;
+- **复杂的交互作用**：很难描述出任何因子的效应趋势  
+ - 若如此，把AB因子所有组合视为处理，做类似于单因素方差分析
+]
+???
+Simple vs. Complex Interactions
+• An interaction is considered simple if we can discuss trends for the main effect of
+one factor for each level of the other factor, and if the general trend is the same.
+• An interaction is complex if it is difficult to discuss anything about the main effects. In this situation, one can only look at treatment combinations and cannot separate them into main effects easily. 
+
+---
+
+class: inverse, middle, center 
+# 3
+## 以`ToothGrowth`数据为例
+## 做均衡设计的Two-way ANOVA   
+
+---
+### 了解数据`ToothGrowth`
+
+.pull-left[
+
+```r
+head(ToothGrowth)
+```
+
+```
+##    len supp dose
+## 1  4.2   VC  0.5
+## 2 11.5   VC  0.5
+## 3  7.3   VC  0.5
+## 4  5.8   VC  0.5
+## 5  6.4   VC  0.5
+## 6 10.0   VC  0.5
+```
+]
+
+.pull-right[
+
+&lt;br&gt;
+
+* 响应变量：牙齿长度（`len`）  
+* 两个因子：补充剂类型（`supp`）、剂量（`dose`）  
+]
+
+--
+
+.pull-left[
+
+```r
+table(ToothGrowth$supp, ToothGrowth$dose)
+```
+
+```
+##     
+##      0.5  1  2
+##   OJ  10 10 10
+##   VC  10 10 10
+```
+]
+
+.pull-right[
+
+&lt;br&gt;
+
+* 每个处理（treatment、cell）均有10个样本
+* 实验设计是“balanced”
+]
+
+
+---
+.pull-left[
+### 统计分析前，先可视化
+
+* 先作图查看有无可观察的效应；若有，再看能否得到统计分析的支持  
+
+&lt;br&gt;
+
+* 不要迷信*p*值  
+
+ - 可能真实效应**可忽略**，但*p*值很小  
+ 
+ - 可能真实效应**很重要**，但*p*值很大  
+ 
+ - *p*值大，表示观察到的差别可能源自随机波动，但并不表示无效应，这取决于样本数和误差的大小  
+
+]
+
+.pull-right[
+```r
+ggplot(ToothGrowth, aes(dose, len, color = supp))+
+  geom_jitter(width = 0.1)+
+  stat_summary(geom = "line", fun = mean, aes(group = supp))
+```
+&lt;img src="figs/tooth_0.png" width="434" height="364" /&gt;
+]
+
+
+
+???
+ggsave("figs/tooth_0.png", width=310/90, height=260/90, dpi=600)
+
+
+---
+### 提出问题  
+.large[
+* 牙齿生长是否受维C剂量（`dose`）的影响？  
+  
+  
+* 牙齿生长是否受维C补充剂类型（`supp`）的影响？  
+  
+  
+* 两个因素在影响牙齿生长时有无交互作用？
+]
+---
+### 双因素方差分析`aov()`
+
+
+
+```r
+ToothGrowth$dose &lt;- factor(ToothGrowth$dose) # dose目前是numeric变量，需转为factor
+mod.1 &lt;- aov(len ~ supp * dose, data = ToothGrowth) 
+summary(mod.1)
+```
+
+```
+##             Df Sum Sq Mean Sq F value   Pr(&gt;F)    
+## supp         1  205.4   205.4  15.572 0.000231 ***
+## dose         2 2426.4  1213.2  92.000  &lt; 2e-16 ***
+## supp:dose    2  108.3    54.2   4.107 0.021860 *  
+## Residuals   54  712.1    13.2                     
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+**解读**：  
+- 首先看`supp:dose`：`dose`和`supp`在影响`len`时存在显著交互作用（*p* = 0.022）
+- 交互作用虽显著，但相比`supp`和`dose`的主效应都小很多，图上也可看到两个因子效应的明确趋势，因此可保留交互效应，同时分析`supp`和`dose`的主效应
+- 维C补充剂的类型和剂量均对牙齿生长有显著影响（*p* &lt; 0.001）  
+- A two-way ANOVA was carried out on tooth growth by vitamin C supplement type and dose. There was a significant interaction between the effects of supplement type and dose on tooth growth [*F*(2, 54) = 4.107, *p* = 0.022].
+
+---
+### 查看交互作用的重要性  
+
+
+```r
+rstatix::eta_squared(mod.1)
+```
+
+```
+##       supp       dose  supp:dose 
+## 0.05948365 0.70286419 0.03137672
+```
+* 使用`rstatix`包中的`eta_squared()`函数计算效应值，效应值表示每个因子的主效应及交互作用所解释的方差比例。交互作用的效应值较小（0.02575745），交互作用不重要。
+
+
+---
+### 双因素方差分析`aov()`
+.large[
+若结果显示无交互作用，则用`+`代替`*`号重新分析：  
+]
+
+
+```r
+mod.1a &lt;- aov(len ~ supp + dose, data = ToothGrowth) 
+summary(mod.1a)
+```
+
+```
+##             Df Sum Sq Mean Sq F value   Pr(&gt;F)    
+## supp         1  205.4   205.4   14.02 0.000429 ***
+## dose         2 2426.4  1213.2   82.81  &lt; 2e-16 ***
+## Residuals   56  820.4    14.7                     
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+???
+### 查看交互作用是否重要
+
+```r
+emmip(mod.1,  supp ~ dose)
+```
+
+![](12.1-factorial_ANOVA_files/figure-html/unnamed-chunk-14-1.png)&lt;!-- --&gt;
+
+
+---
+
+class: inverse, middle, center 
+# 3.1
+## 运用`TukeyHSD`函数
+## 进行*post-hoc*检验   
+
+---
+### *post hoc*检验
+
+
+- **`dose`的主效应**
+
+
+```r
+post.1 &lt;- TukeyHSD(mod.1, which = "dose")
+post.1
+```
+
+```
+##   Tukey multiple comparisons of means
+##     95% family-wise confidence level
+## 
+## Fit: aov(formula = len ~ supp * dose, data = ToothGrowth)
+## 
+## $dose
+##         diff       lwr       upr   p adj
+## 1-0.5  9.130  6.362488 11.897512 0.0e+00
+## 2-0.5 15.495 12.727488 18.262512 0.0e+00
+## 2-1    6.365  3.597488  9.132512 2.7e-06
+```
+
+
+
+---
+### *post hoc*检验：标注结果  
+
+
+```r
+p.value &lt;- post.1$dose[,4]
+
+let &lt;- multcompView::multcompLetters(p.value) 
+
+let
+```
+
+```
+##   1   2 0.5 
+## "a" "b" "c"
+```
+
+
+---
+
+### *post hoc*检验：`TukeyHSD()`检验全部组合之间的差异
+.large[
+* 如果交互作用**显著且重要**，则检验主效应无意义，但可检验所有`supp * dose`组合之间的差异  
+
+* 注意：此处交互作用并非**显著且重要**，以下仅作演示用  
+]
+
+
+```r
+TukeyHSD(mod.1)$`supp:dose`
+```
+
+```
+##                diff        lwr        upr        p adj
+## VC:0.5-OJ:0.5 -5.25 -10.048124 -0.4518762 2.425209e-02
+## OJ:1-OJ:0.5    9.47   4.671876 14.2681238 4.612304e-06
+## VC:1-OJ:0.5    3.54  -1.258124  8.3381238 2.640208e-01
+## OJ:2-OJ:0.5   12.83   8.031876 17.6281238 2.125153e-09
+## VC:2-OJ:0.5   12.91   8.111876 17.7081238 1.769939e-09
+## OJ:1-VC:0.5   14.72   9.921876 19.5181238 2.985978e-11
+## VC:1-VC:0.5    8.79   3.991876 13.5881238 2.100948e-05
+## OJ:2-VC:0.5   18.08  13.281876 22.8781238 4.855005e-13
+## VC:2-VC:0.5   18.16  13.361876 22.9581238 4.821699e-13
+## VC:1-OJ:1     -5.93 -10.728124 -1.1318762 7.393032e-03
+## OJ:2-OJ:1      3.36  -1.438124  8.1581238 3.187361e-01
+## VC:2-OJ:1      3.44  -1.358124  8.2381238 2.936430e-01
+## OJ:2-VC:1      9.29   4.491876 14.0881238 6.908163e-06
+## VC:2-VC:1      9.37   4.571876 14.1681238 5.774013e-06
+## VC:2-OJ:2      0.08  -4.718124  4.8781238 1.000000e+00
+```
+
+---
+
+### *post hoc*检验：`TukeyHSD()`，标注字母
+
+
+
+```r
+p.value &lt;- TukeyHSD(mod.1)$'supp:dose'[,4]
+
+let &lt;- multcompView::multcompLetters(p.value) 
+
+let
+```
+
+```
+## VC:0.5   OJ:1   VC:1   OJ:2   VC:2 OJ:0.5 
+##    "a"    "b"    "c"    "b"    "b"    "c"
+```
+
+**解读**：Tukey’s HSD *post hoc* tests indicate that when organge juice was used, dose 1 and 2 had significantly higher effects than dose 0.5 (both *p* &lt; 0.001), while the effects were not significantly different between dose 1 and dose 2 (*p* = 0.319). In comparision,  when VC was used, effects significantly increased with the increases of dose from 0.5 to 1 (*p* &lt; 0.001) and from 1 to 2 (*p* &lt; 0.001).
+
+???
+表述方式
+The main effect of student age on IQ was not significant (F(1,36) = 1.125, p = .296) but
+the main effect of teacher expectation on IQ was significant such that students whose
+teachers had high expectations received higher scores than students whose teachers
+had normal expectations, (F(1,36) = 10.125, p = .003).
+
+The high-expectation group scored significantly higher than the low-expectation group
+(F(1,36) = 10.125, p = .003), while the scores of 7-year-olds and 15-year-olds were not
+significantly different (F(1,36) = 1.125, p = .296).
+
+### *post hoc*检验：标注结果的另一种方法
+```r
+library(lsmeans)
+post.3 &lt;- lsmeans(mod.1, 
+        pairwise ~ dose * supp,
+        adjust="tukey")
+contrast &lt;- as.data.frame(post.3$contrasts)
+p.value &lt;- contrast$p.value
+name &lt;- gsub(" - ","-",contrast$contrast)
+names(p.value) &lt;- name
+let &lt;- multcompLetters(p.value, compare="&lt;", threshold=0.05, Letters=letters, reversed = F) 
+let
+```
+
+---
+
+### *post hoc*检验：图上标注检验结果  
+
+.pull-left67[
+```r
+#根据上一页的结果，将字母放入数据表
+d_pvalue &lt;- data.frame(supp=c("VC","OJ","VC","OJ","VC","OJ"), dose=c("0.5","1","1","2","2","0.5"), label = as.vector(let$Letters)) 
+
+#设定标注字母的y坐标，并于字母数据表合并
+d_label &lt;- ToothGrowth |&gt;
+  group_by(supp, dose) |&gt;
+  summarise(y_pos=max(len)) |&gt;
+  left_join(d_pvalue, by=c("dose", "supp"))
+
+ggplot(ToothGrowth, aes(factor(dose), len, color=supp))+
+  geom_boxplot(outlier.alpha = 0)+
+  geom_jitter(position=position_jitterdodge(jitter.width =0.4))+
+  labs(x="Dose of VC (mg/d)", y="Tooth length (cm)", color=NULL)+
+  theme(legend.position = c(0.85, 0.2))+
+ geom_text(data=d_label, aes(x=dose, y=y_pos+2, label=label, group=supp), color="black", position=position_dodge(width=0.7))
+
+```
+]
+
+.pull-right67[
+&lt;img src="figs/tooth_3.png" width="312.857142857143" height="269.285714285714" /&gt;
+]
+
+???
+ggsave("figs/tooth_3.png", width=438/90, height=377/90, dpi=600)
+
+---
+
+class: inverse, middle, center 
+# 3.2
+## 运用`emmeans`包
+## 进行自定义的*post-hoc*检验   
+
+
+
+???
+The emmeans package is one of several alternatives to facilitate post hoc methods application and contrast analysis. It is a relatively recent replacement for the lsmeans package that some R users may be familiar with.
+
+Estimated marginal means are based on a model – not directly on data. 
+
+---
+### `emmeans`包分析`dose`的**主效应**
+
+
+```r
+mod.1 &lt;- aov(len ~ supp * dose, data = ToothGrowth) 
+
+emmeans(mod.1, specs = pairwise ~ dose) |&gt; 
+  multcomp::cld(Letters = letters)
+```
+
+```
+## NOTE: Results may be misleading due to involvement in interactions
+```
+
+```
+##  dose emmean    SE df lower.CL upper.CL .group
+##  0.5    10.6 0.812 54     8.98     12.2  a    
+##  1      19.7 0.812 54    18.11     21.4   b   
+##  2      26.1 0.812 54    24.47     27.7    c  
+## 
+## Results are averaged over the levels of: supp 
+## Confidence level used: 0.95 
+## P value adjustment: tukey method for comparing a family of 3 estimates 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+
+
+
+---
+### `emmeans`包分析`supp`的**主效应**
+
+```r
+emmeans(mod.1, specs = pairwise ~ supp) |&gt; 
+  multcomp::cld(Letters = letters)
+```
+
+```
+## NOTE: Results may be misleading due to involvement in interactions
+```
+
+```
+##  supp emmean    SE df lower.CL upper.CL .group
+##  VC     17.0 0.663 54     15.6     18.3  a    
+##  OJ     20.7 0.663 54     19.3     22.0   b   
+## 
+## Results are averaged over the levels of: dose 
+## Confidence level used: 0.95 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+注：此处`supp`只有两个水平，不存在多重比较，此处只是演示用法  
+
+
+---
+### `emmeans`包分析全部组合之间的差异
+* 等效于one-way ANOVA  
+
+
+```r
+emm.out &lt;- emmeans(mod.1, specs = pairwise ~ supp:dose)
+
+
+emmeans(mod.1, specs = pairwise ~ supp:dose) |&gt; 
+   multcomp::cld(Letters = letters) 
+```
+
+```
+##  supp dose emmean   SE df lower.CL upper.CL .group
+##  VC   0.5    7.98 1.15 54     5.68     10.3  a    
+##  OJ   0.5   13.23 1.15 54    10.93     15.5   b   
+##  VC   1     16.77 1.15 54    14.47     19.1   b   
+##  OJ   1     22.70 1.15 54    20.40     25.0    c  
+##  OJ   2     26.06 1.15 54    23.76     28.4    c  
+##  VC   2     26.14 1.15 54    23.84     28.4    c  
+## 
+## Confidence level used: 0.95 
+## P value adjustment: tukey method for comparing a family of 6 estimates 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+
+
+
+---
+### `emmeans`包分析`dose`的**简单效应**
+
+```r
+emmeans(mod.1, ~ dose | supp) |&gt; 
+  multcomp::cld(Letters = letters)
+```
+
+```
+## supp = OJ:
+##  dose emmean   SE df lower.CL upper.CL .group
+##  0.5   13.23 1.15 54    10.93     15.5  a    
+##  1     22.70 1.15 54    20.40     25.0   b   
+##  2     26.06 1.15 54    23.76     28.4   b   
+## 
+## supp = VC:
+##  dose emmean   SE df lower.CL upper.CL .group
+##  0.5    7.98 1.15 54     5.68     10.3  a    
+##  1     16.77 1.15 54    14.47     19.1   b   
+##  2     26.14 1.15 54    23.84     28.4    c  
+## 
+## Confidence level used: 0.95 
+## P value adjustment: tukey method for comparing a family of 3 estimates 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+
+
+---
+### `emmeans`包分析`supp`的**简单效应**
+
+```r
+emmeans(mod.1,  ~ supp | dose) |&gt; 
+  multcomp::cld(Letters = letters)
+```
+
+```
+## dose = 0.5:
+##  supp emmean   SE df lower.CL upper.CL .group
+##  VC     7.98 1.15 54     5.68     10.3  a    
+##  OJ    13.23 1.15 54    10.93     15.5   b   
+## 
+## dose = 1:
+##  supp emmean   SE df lower.CL upper.CL .group
+##  VC    16.77 1.15 54    14.47     19.1  a    
+##  OJ    22.70 1.15 54    20.40     25.0   b   
+## 
+## dose = 2:
+##  supp emmean   SE df lower.CL upper.CL .group
+##  OJ    26.06 1.15 54    23.76     28.4  a    
+##  VC    26.14 1.15 54    23.84     28.4  a    
+## 
+## Confidence level used: 0.95 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+
+
+---
+### `emmeans`包自定义对照（contrast）进行多重比较
+目的：尽量减少多重比较的次数，提高分析效能（power）
+
+* **以第1组作为对照**  
+此处第1组是`OJ dose0.5`，其他所有组都与之比较，将比较次数减少到了5次
+
+```r
+emmeans(mod.1, specs = trt.vs.ctrl ~supp : dose) $contrast
+```
+
+```
+##  contrast                estimate   SE df t.ratio p.value
+##  VC dose0.5 - OJ dose0.5    -5.25 1.62 54  -3.233  0.0095
+##  OJ dose1 - OJ dose0.5       9.47 1.62 54   5.831  &lt;.0001
+##  VC dose1 - OJ dose0.5       3.54 1.62 54   2.180  0.1307
+##  OJ dose2 - OJ dose0.5      12.83 1.62 54   7.900  &lt;.0001
+##  VC dose2 - OJ dose0.5      12.91 1.62 54   7.949  &lt;.0001
+## 
+## P value adjustment: dunnettx method for 5 tests
+```
+
+---
+### `emmeans`包自定义对照（contrast）进行多重比较
+目的：尽量减少多重比较的次数，提高分析效能（power）
+
+* **以任意组为对照**  
+通过`ref`设置任意组为对照；此处ref = 2，即设置第2组（`VC dose0.5`组）为对照
+
+```r
+emmeans(mod.1, specs = trt.vs.ctrlk ~supp : dose, ref = 2) $contrast
+```
+
+```
+##  contrast                estimate   SE df t.ratio p.value
+##  OJ dose0.5 - VC dose0.5     5.25 1.62 54   3.233  0.0095
+##  OJ dose1 - VC dose0.5      14.72 1.62 54   9.064  &lt;.0001
+##  VC dose1 - VC dose0.5       8.79 1.62 54   5.413  &lt;.0001
+##  OJ dose2 - VC dose0.5      18.08 1.62 54  11.133  &lt;.0001
+##  VC dose2 - VC dose0.5      18.16 1.62 54  11.182  &lt;.0001
+## 
+## P value adjustment: dunnettx method for 5 tests
+```
+
+
+---
+
+class: inverse, middle, center 
+# 3.3
+## Two-way ANOVA的诊断   
+
+
+---
+### 检验残差正态分布
+
+
+```r
+resid &lt;- mod.1$residuals
+shapiro.test(resid)
+```
+
+```
+## 
+## 	Shapiro-Wilk normality test
+## 
+## data:  resid
+## W = 0.98499, p-value = 0.6694
+```
+
+- *p* &gt; 0.05，不拒绝正态分布原假设，可认为残差符合正态分布。
+
+???
+Normality checks and Levene’s test were carried out and the assumptions were met.
+
+---
+### 检验方差齐性  
+
+- **检验所有`supp`和`dose`组合的方差齐性**
+
+```r
+car::leveneTest(len ~ supp*dose, data = ToothGrowth) 
+```
+
+```
+## Levene's Test for Homogeneity of Variance (center = median)
+##       Df F value Pr(&gt;F)
+## group  5  1.7086 0.1484
+##       54
+```
+
+
+
+- *p* &gt; 0.05，不拒绝方差齐性原假设，可认为符合方差齐性。
+---
+
+### 检验方差齐性  
+
+- **检验不同`supp`之间的方差齐性**
+
+```r
+car::leveneTest(len ~ supp, data = ToothGrowth)
+```
+
+```
+## Levene's Test for Homogeneity of Variance (center = median)
+##       Df F value Pr(&gt;F)
+## group  1  1.2136 0.2752
+##       58
+```
+
+- **检验不同`dose`之间的方差齐性**
+
+```r
+car::leveneTest(len ~ dose, data = ToothGrowth)
+```
+
+```
+## Levene's Test for Homogeneity of Variance (center = median)
+##       Df F value Pr(&gt;F)
+## group  2  0.6457 0.5281
+##       57
+```
+
+- *p* 值均&gt; 0.05，不拒绝方差齐性原假设，可认为符合方差齐性。
+---
+### 诊断图  
+```r
+plot(mod.1)
+```
+
+&lt;img src="figs/tooth_2.png" width="518.571428571429" height="451" /&gt;
+
+???
+* You should check if your model does not violate assumtions
+Assumptions what? you need the residuals to be normaly distributed. Equal variance (check for homoscedasticity, a difficult word that means equal variance). Outliers might cause issues.
+
+
+durbinWatsonTest(fit.lm2, alternative="two.sided",data=data)
+we do not reject the durbin watson test hence we have independence.
+
+
+---
+
+class: inverse, middle, center 
+# 4
+## 非均衡设计的Two-way ANOVA   
+
+---
+## Type I, II and III 平方和
+
+.large[
+* 对于**均衡设计**，类型I，II，III的计算结果都是一样的  
+
+* 对于**非均衡设计**，计算结果不同  
+
+* 应该使用哪种计算方式，目前仍有争议
+]
+???
+NOTE: when data is balanced, the factors are orthogonal, and types I, II and III all give the same results.
+
+When data is unbalanced, there are different ways to calculate the sums of squares for ANOVA.
+
+Which type to use has led to an ongoing controversy in the field of statistics (for an overview, see Heer [2]). However, it essentially comes down to testing different hypotheses about the data.
+
+---
+### Type I 平方和
+
+&gt; SS(A) ：因子A的平方和  
+&gt; SS(B | A) ： 因子B的平方和  
+&gt; SS(A*B | B, A) ：AB交互作用的平方和
+
+* 称为顺序平方和；若模型中因子先后顺序不同，则结果不同
+
+* 不适用于非均衡设计  
+
+* 用Base R自带函数计算Type I SS  
+`aov()`  
+`anova()` 
+
+???
+Type I, also called “sequential” sum of squares:
+
+SS(A) for factor A.
+SS(B | A) for factor B.
+SS(A*B | B, A) for interaction AB.
+
+The anova and aov functions in R implement a sequential sum of squares (type I). As indicated above, for unbalanced data, this rarely tests a hypothesis of interest,
+
+
+---
+### Type II 平方和
+
+&gt; SS(A | B) : 因子A的平方和  
+&gt; SS(B | A) : 因子B的平方和
+
+* 在考虑了另一个因子的主效应之后考虑当前因子的主效应
+* 若不存在交互作用，使用Type II
+
+* 需用`car::Anova`计算：  
+`Anova(lm(Y ~ A * B, data = d, type=2))`  
+`Anova(lm(Y ~ A + B, data = d, type=2))`   
+
+注意首字母A大写，需加载`car`包；若小写（`anova`）则是另一个函数
+
+???
+SS(A | B) for factor A.
+SS(B | A) for factor B.
+SS(A*B | A,B)
+This type tests for each main effect after the other main effect.
+If there is indeed no interaction, then type II is statistically more powerful than type III (see Langsrud [3] for further details).
+
+ car::Anova(), which can calculate type II and III SS directly.
+
+Anova(lm(time ~ topic * sys, data=search, type=2))
+
+---
+### Type III 平方和
+
+&gt; SS(A | B, A\*B) 因子A的平方和   
+&gt; SS(B | A, A\*B) 因子B的平方和  
+&gt; SS(A*B | A,B) AB交互作用的平方和  
+
+* 在考虑了另一个因子的主效应和交互作用之后考虑当前因子的主效应   
+* 适用于存在交互作用的非均衡设计  
+
+* 需用`car::Anova`计算：  
+`Anova(lm(Y ~ A * B, data = d, contrasts = list(A=contr.sum, B=contr.sum)), type=3)`
+
+
+???
+Type III are “partial.”
+ 
+SS(A | B, A*B) for factor A.
+SS(B | A, A*B) for factor B.
+SS(A*B|A,B)
+This type tests for the presence of a main effect after the other main effect and interaction. This approach is therefore valid in the presence of significant interactions.
+
+However, it is often not interesting to interpret a main effect if interactions are present (generally speaking, if a significant interaction is present, the main effects should not be further analysed).
+
+Type III:
+
+Anova(lm(time ~ topic * sys, data=search, contrasts=list(topic=contr.sum, sys=contr.sum)), type=3))
+
+options(contrasts = c("contr.sum", "contr.poly"))
+ ### needed for type III tests
+ ### Default is: options(contrasts = c("contr.treatment", "contr.poly"))
+
+
+Summary: Usually the hypothesis of interest is about the significance of one factor while controlling for the level of the other factors. This equates to using type II or III SS. In general, if there is no significant interaction effect, then type II is more powerful, and follows the principle of marginality. If interaction is present, then type II is inappropriate while type III can still be used, but results need to be interpreted with caution (in the presence of interactions, main effects are rarely interpretable).
+
+
+
+
+
+---
+### 以数据`pigs`为例，做非均衡设计的Two-way ANOVA   
+
+
+```r
+data('pigs', package='emmeans') # 数据来自emmeans包
+head(pigs)
+```
+
+```
+##   source percent conc
+## 1   fish       9 27.8
+## 2   fish       9 23.7
+## 3   fish      12 31.5
+## 4   fish      12 28.5
+## 5   fish      12 32.8
+## 6   fish      15 34.0
+```
+
+```r
+table(pigs$source, pigs$percent) # 各组数据不等，即非均衡设计
+```
+
+```
+##       
+##        9 12 15 18
+##   fish 2  3  2  3
+##   soy  3  3  3  1
+##   skim 3  3  2  1
+```
+
+---
+### 可视化数据
+
+.pull-left[
+```r
+ggplot(pigs, aes(percent, conc, color = source))+
+  geom_jitter(width = 0.1)+
+  stat_summary(geom = "line", aes(group = source), fun = mean)+
+  scale_y_log10()
+```
+]
+
+.pull-right[
+&lt;img src="figs/pigs_1.png" width="460.8" height="373.2" /&gt;
+]
+
+???
+ggsave("figs/pigs_1.png", width =384/90, height=311/90, dpi=600 )
+---
+### 非均衡设计的Two-way ANOVA
+
+```r
+pigs$percent &lt;- factor(pigs$percent) # numeric转为factor
+mod.2 &lt;- lm(log(conc) ~ source * percent, data = pigs) #lm()与aov()等效
+```
+
+* 默认采用Type II SS
+
+```r
+car::Anova(mod.2) # 等价于 Anova(mod.2, type = 2)
+```
+
+```
+## Anova Table (Type II tests)
+## 
+## Response: log(conc)
+##                 Sum Sq Df F value    Pr(&gt;F)    
+## source         0.76476  2 28.2914 3.901e-06 ***
+## percent        0.31736  3  7.8269  0.001699 ** 
+## source:percent 0.07508  6  0.9259  0.501099    
+## Residuals      0.22977 17                      
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+无显著交互作用，采用Type II SS合适
+
+---
+### 非均衡设计的Two-way ANOVA
+若存在交互作用（注：此处非此情况，仅作演示目的），需采用Type III SS：
+
+
+```r
+mod.pigs &lt;- lm(log(conc) ~ source * percent, data = pigs,
+      contrasts = list(source = contr.sum, percent = contr.sum))
+Anova(mod.pigs, type = 3) 
+```
+
+```
+## Anova Table (Type III tests)
+## 
+## Response: log(conc)
+##                Sum Sq Df    F value    Pr(&gt;F)    
+## (Intercept)    325.17  1 24058.7049 &lt; 2.2e-16 ***
+## source           0.82  2    30.2564 2.507e-06 ***
+## percent          0.33  3     8.2137  0.001348 ** 
+## source:percent   0.08  6     0.9259  0.501099    
+## Residuals        0.23 17                         
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+---
+### *post-hoc* 检验
+
+* `percent`的主效应
+
+```r
+emmeans(mod.2, specs = pairwise~percent) |&gt; 
+  cld(Letters = letters)
+```
+
+```
+## NOTE: Results may be misleading due to involvement in interactions
+```
+
+```
+##  percent emmean     SE df lower.CL upper.CL .group
+##  9         3.45 0.0419 17     3.36     3.54  a    
+##  12        3.62 0.0388 17     3.54     3.71   b   
+##  15        3.67 0.0447 17     3.58     3.76   b   
+##  18        3.78 0.0592 17     3.65     3.90   b   
+## 
+## Results are averaged over the levels of: source 
+## Results are given on the log (not the response) scale. 
+## Confidence level used: 0.95 
+## P value adjustment: tukey method for comparing a family of 4 estimates 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+
+---
+### *post-hoc* 检验
+
+* `source`的主效应
+
+```r
+emmeans(mod.2, specs = pairwise~source) |&gt; 
+  cld(Letters = letters)
+```
+
+```
+## NOTE: Results may be misleading due to involvement in interactions
+```
+
+```
+##  source emmean     SE df lower.CL upper.CL .group
+##  fish     3.40 0.0375 17     3.32     3.48  a    
+##  soy      3.66 0.0411 17     3.57     3.75   b   
+##  skim     3.83 0.0428 17     3.74     3.92    c  
+## 
+## Results are averaged over the levels of: percent 
+## Results are given on the log (not the response) scale. 
+## Confidence level used: 0.95 
+## P value adjustment: tukey method for comparing a family of 3 estimates 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+
+???
+对比
+
+
+```r
+emmeans(lm(log(conc) ~ source + percent, data = pigs), specs = pairwise~percent) |&gt; 
+  cld(Letters = letters)
+```
+
+```
+##  percent emmean     SE df lower.CL upper.CL .group
+##  9         3.45 0.0409 23     3.36     3.53  a    
+##  12        3.62 0.0384 23     3.55     3.70   b   
+##  15        3.66 0.0437 23     3.57     3.75   b   
+##  18        3.75 0.0530 23     3.64     3.85   b   
+## 
+## Results are averaged over the levels of: source 
+## Results are given on the log (not the response) scale. 
+## Confidence level used: 0.95 
+## P value adjustment: tukey method for comparing a family of 4 estimates 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+
+```r
+emmeans(lm(log(conc) ~ source + percent, data = pigs), specs = pairwise~source) |&gt; 
+  cld(Letters = letters)
+```
+
+```
+##  source emmean     SE df lower.CL upper.CL .group
+##  fish     3.39 0.0367 23     3.32     3.47  a    
+##  soy      3.67 0.0374 23     3.59     3.74   b   
+##  skim     3.80 0.0394 23     3.72     3.88   b   
+## 
+## Results are averaged over the levels of: percent 
+## Results are given on the log (not the response) scale. 
+## Confidence level used: 0.95 
+## P value adjustment: tukey method for comparing a family of 3 estimates 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+
+
+
+???
+
+```r
+options(contrasts = c("contr.sum", "contr.poly"))
+
+d.ABCr &lt;- data.frame(A = c("a", "a", "a", "a", "b", "b", "b", "b", "b", "b", "b", "b"),
+           B = c("x", "y", "x", "y", "x", "y", "x", "y", "x", "x", "x", "x"),
+           C = c("l", "l", "m", "m", "l", "l", "m", "m", "l", "l", "l", "l"),
+           response = c( 14,  30,  15,  35,  50,  51,  30,  32,  51,  55,  53,  55))
+
+model = lm(response ~ A + B + C + A:B + A:C + B:C, data=d.ABCr)
+anova(model)              # Type I tests
+```
+
+```
+## Analysis of Variance Table
+## 
+## Response: response
+##           Df  Sum Sq Mean Sq  F value    Pr(&gt;F)    
+## A          1 1488.37 1488.37 357.6869 7.614e-06 ***
+## B          1   18.22   18.22   4.3798 0.0905765 .  
+## C          1  390.15  390.15  93.7610 0.0001995 ***
+## A:B        1  278.68  278.68  66.9722 0.0004431 ***
+## A:C        1  339.51  339.51  81.5909 0.0002778 ***
+## B:C        1    8.51    8.51   2.0444 0.2121592    
+## Residuals  5   20.81    4.16                       
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+```r
+car::Anova(model, type="II")   # Type II tests
+```
+
+```
+## Anova Table (Type II tests)
+## 
+## Response: response
+##            Sum Sq Df  F value    Pr(&gt;F)    
+## A         1022.01  1 245.6103 1.923e-05 ***
+## B          131.25  1  31.5421 0.0024764 ** 
+## C          278.68  1  66.9722 0.0004431 ***
+## A:B        180.01  1  43.2593 0.0012194 ** 
+## A:C        321.01  1  77.1445 0.0003174 ***
+## B:C          8.51  1   2.0444 0.2121592    
+## Residuals   20.81  5                       
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+```r
+car::Anova(model, type="III")  # Type III tests
+```
+
+```
+## Anova Table (Type III tests)
+## 
+## Response: response
+##             Sum Sq Df   F value    Pr(&gt;F)    
+## (Intercept) 9490.0  1 2280.6425 7.605e-08 ***
+## A            724.5  1  174.1138 4.465e-05 ***
+## B            184.5  1   44.3408 0.0011526 ** 
+## C            180.0  1   43.2593 0.0012194 ** 
+## A:B          180.0  1   43.2593 0.0012194 ** 
+## A:C          321.0  1   77.1445 0.0003174 ***
+## B:C            8.5  1    2.0444 0.2121592    
+## Residuals     20.8  5                        
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+
+
+
+
+
+???
+作业
+
+```r
+data('rats', package='faraway')
+
+summary(aov(time ~ treat * poison, data = rats))
+```
+
+```
+##              Df Sum Sq Mean Sq F value   Pr(&gt;F)    
+## treat         3 0.9212  0.3071  13.806 3.78e-06 ***
+## poison        2 1.0330  0.5165  23.222 3.33e-07 ***
+## treat:poison  6 0.2501  0.0417   1.874    0.112    
+## Residuals    36 0.8007  0.0222                     
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+```r
+rats |&gt; 
+  ggplot(aes(poison, time, fill = treat))+
+  geom_point()+
+  geom_col(position = "dodge")+
+  facet_wrap(~treat, nrow=1)
+```
+
+![](12.1-factorial_ANOVA_files/figure-html/unnamed-chunk-41-1.png)&lt;!-- --&gt;
+
+```r
+table(rats$poison, rats$treat)
+```
+
+```
+##      
+##       A B C D
+##   I   4 4 4 4
+##   II  4 4 4 4
+##   III 4 4 4 4
+```
+
+```r
+fit.2 &lt;- aov(time ~ treat + poison, data = rats)
+summary(fit.2)
+```
+
+```
+##             Df Sum Sq Mean Sq F value  Pr(&gt;F)    
+## treat        3 0.9212  0.3071   12.27 6.7e-06 ***
+## poison       2 1.0330  0.5165   20.64 5.7e-07 ***
+## Residuals   42 1.0509  0.0250                    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+```r
+emmeans(fit.2, pairwise ~ treat) |&gt; 
+  cld()
+```
+
+```
+##  treat emmean     SE df lower.CL upper.CL .group
+##  A      0.314 0.0457 42    0.222    0.406  1    
+##  C      0.393 0.0457 42    0.300    0.485  12   
+##  D      0.534 0.0457 42    0.442    0.626   23  
+##  B      0.677 0.0457 42    0.585    0.769    3  
+## 
+## Results are averaged over the levels of: poison 
+## Confidence level used: 0.95 
+## P value adjustment: tukey method for comparing a family of 4 estimates 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+
+```r
+emmeans(fit.2, pairwise ~ poison) |&gt; 
+  cld()
+```
+
+```
+##  poison emmean     SE df lower.CL upper.CL .group
+##  III     0.276 0.0395 42    0.196    0.356  1    
+##  II      0.544 0.0395 42    0.465    0.624   2   
+##  I       0.618 0.0395 42    0.538    0.697   2   
+## 
+## Results are averaged over the levels of: treat 
+## Confidence level used: 0.95 
+## P value adjustment: tukey method for comparing a family of 3 estimates 
+## significance level used: alpha = 0.05 
+## NOTE: If two or more means share the same grouping symbol,
+##       then we cannot show them to be different.
+##       But we also did not show them to be the same.
+```
+
+```r
+label &lt;- emmeans(fit.2, pairwise ~ treat*poison) |&gt; 
+  multcomp::cld(Letters = letters) |&gt; 
+  mutate(.group=str_remove_all(.group, "\\s")) #去除标签里的空格
+
+rats |&gt; 
+  ggplot(aes(poison, time))+
+  geom_point()+
+  facet_wrap(~treat, nrow=1) +
+  geom_text(data = label, aes(y=1.3, label=.group))
+```
+
+![](12.1-factorial_ANOVA_files/figure-html/unnamed-chunk-41-2.png)&lt;!-- --&gt;
+
+
+---
+### 小结：Two-way ANOVA的多重比较有多种方案
+.large[根据研究需求选择使用。  
+
+比较次数越少，检出显著性差异的效能越高。]
+
+- **主效应**：  
+  * 比较因子A的各个水平的数据，忽略因子B  
+  * 比较因子B的各个水平的数据，忽略因子A 
+  
+- **简单效应**：  
+  * 在因子A的每一个水平，比较因子B的多个水平   
+  * 在因子B的每一个水平，比较因子A的多个水平  
+  * 需注意控制第一类错误，α = 0.05/比较次数  
+ 
+- **全部组合两两比较**
+
+- **选定对照两两比较**
+
+
+
+
+???
+
+https://www.graphpad.com/guides/prism/8/statistics/stat_multiple_comparisons_tab_2way.htm  
+
+Multiple comparisons tab: Two-way ANOVA
+
+
+---
+### 参考资料：
+
+Field A., Miles J., Field Z. 2012. Discovering Statistics Using R. SAGE Publications Ltd. Chapter 11 Factorial ANOVA.
+
+Comparisons and contrasts in emmeans (emmeans package, Version 1.7.4.1)  
+https://cran.r-project.org/web/packages/emmeans/vignettes/comparisons.html
+
+
+---
+### 推荐阅读
+
+1. Two-Way ANOVA Test in R   
+http://www.sthda.com/english/wiki/two-way-anova-test-in-r
+
+2. Salvatore S. Mangiafico. 2015. An R Companion for the Handbook of Biological Statistics. Two-way Anova.   
+https://rcompanion.org/rcompanion/d_08.html
+
+3. Feys, Jos. 2016. Nonparametric Tests for the Interaction in Two-way Factorial Designs Using R. The R Journal, 8(1):367-378. （2-way ANOVA的非参数方法，不常用）  
+https://journal.r-project.org/archive/2016/RJ-2016-027/RJ-2016-027.pdf
+
+???
+
+2. ANOVA in R （`rstatix`程序包的使用，简化分析流程，包括3-way ANOVA）  
+https://www.datanovia.com/en/lessons/anova-in-r/
+
+需参考：https://rcompanion.org/handbook/G_06.html
+
+参考：Mangiafico, S.S. 2015. An R Companion for the Handbook of Biological Statistics, version 1.3.2. 下载地址：http://biostathandbook.com/
+
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

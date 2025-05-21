@@ -1,0 +1,49 @@
+.red {color: #C3423F;}
+.blue {color: #222E50;}
+.blue2 {color: #4197D9;}
+.green {color: #136F63;}
+
+.black {color: #000000;}
+
+.green0 {color: #00FF00;}
+.yellow0 {color: #FFFF00;}
+.red0 {color: #FF0000;}
+.blue0 {color: #0000FF;}
+
+.large { font-size: 130% }
+.large2 { font-size: 150% }
+.large3 { font-size: 200% }
+.small { font-size: 70% }
+
+pre {
+  white-space: pre-wrap;
+}
+
+
+
+.title-slide {
+  background-image: url(cover.png);
+  background-size: cover;
+}
+
+
+
+
+.pull-left67 {
+  float: left;
+  width: 67%;
+}
+.pull-right67 {
+  float: right;
+  width: 27%;
+}
+
+
+.pull-left57 {
+  float: left;
+  width: 57%;
+}
+.pull-right57 {
+  float: right;
+  width: 37%;
+}
